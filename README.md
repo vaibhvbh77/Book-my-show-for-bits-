@@ -6,9 +6,11 @@ A minimal distributed seat booking system built using gRPC, Raft-based leader el
 
 🔗  Demo Video
 
-🎥 Demo link: https://drive.google.com/file/d/1zlMIjGZ9KNQWm94eDQ2jK2poHeeyTKCD/view?usp=drive_link
+🎥 Demo link: Milestone 1:
+https://drive.google.com/file/d/1zlMIjGZ9KNQWm94eDQ2jK2poHeeyTKCD/view?usp=drive_link
 
-
+Demo Link : Milestone 1+2 conbined
+https://drive.google.com/file/d/1vSpMXif6M7kKfX7k5Z3r_5EgO_ptYCaf/view?usp=drivesdk
 
 
 🧩 0. Prerequisites (macOS / Linux)
