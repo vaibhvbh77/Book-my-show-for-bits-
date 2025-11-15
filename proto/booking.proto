@@ -1,0 +1,48 @@
+syntax = "proto3";
+package booking;
+
+service ClientAPI {
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc GetSeats(GetRequest) returns (GetResponse);
+  rpc ReserveSeat(ReserveRequest) returns (ReserveReply);
+  rpc CancelSeat(CancelRequest) returns (Status);
+}
+
+service Raft {
+  rpc RequestVote(RequestVoteArgs) returns (RequestVoteReply);
+  rpc AppendEntries(AppendEntriesArgs) returns (AppendEntriesReply);
+}
+
+message LoginRequest { string username = 1; string password = 2; }
+message LoginResponse { int32 status = 1; string token = 2; }
+
+message GetRequest { string token = 1; }
+message GetResponse { int32 status = 1; repeated Seat seats = 2; }
+
+message ReserveRequest { string token = 1; string seat_id = 2; string client_id = 3; }
+message ReserveReply { int32 code = 1; string msg = 2; }
+
+message CancelRequest { string token = 1; string seat_id = 2; string client_id = 3; }
+message Status { int32 code = 1; string msg = 2; }
+
+message Seat { string seat_id = 1; bool reserved = 2; string reserved_by = 3; }
+
+message RequestVoteArgs { string candidateId = 1; int64 term = 2; int64 lastLogIndex = 3; int64 lastLogTerm = 4; }
+message RequestVoteReply { int64 term = 1; bool voteGranted = 2; }
+
+message LogEntry { int64 index = 1; int64 term = 2; string command = 3; string data = 4; }
+
+message AppendEntriesArgs {
+  int64 term = 1;
+  string leaderId = 2;
+  int64 prevLogIndex = 3;
+  int64 prevLogTerm = 4;
+  repeated LogEntry entries = 5;
+  int64 leaderCommit = 6;
+}
+
+message AppendEntriesReply {
+  int64 term = 1;
+  bool success = 2;
+  int64 matchIndex = 3;
+}

@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+
+<style>
+  /* Minimal, modern-ish styling — adapt to your theme */
+  body { font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; background:#071221; color:#dbe7ff; margin:0; padding:28px; }
+  .container { display:flex; gap:20px; max-width:1200px; margin:0 auto; }
+  .left { width:280px; }
+  .card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); padding:18px; border-radius:12px; box-shadow: 0 6px 18px rgba(2,6,23,0.6); margin-bottom:18px; }
+  h1 { margin:0 0 10px 0; font-size:28px; }
+  .btn { display:inline-block; padding:10px 14px; border-radius:10px; cursor:pointer; border:0; background:#ff7a6a; color:white; }
+  .muted { color:#9fb0d6; font-size:13px; }
+  .cluster-list { display:flex; flex-direction:column; gap:8px; }
+  .peer-row { display:flex; justify-content:space-between; align-items:center; padding:10px; border-radius:8px; background:rgba(255,255,255,0.01); }
+  .peer-left { display:flex; gap:10px; align-items:center; }
+  .badge { background:#ffb84d; color:#0b1220; padding:6px 8px; border-radius:10px; font-weight:700; font-size:12px; }
+  .small { font-size:13px; color:#cfe0ff; }
+  .seats { flex:1; }
+  .grid { display:grid; grid-template-columns: repeat(5, 1fr); gap:14px; }
+  .seat { padding:18px; border-radius:12px; background:rgba(255,255,255,0.02); text-align:center; min-height:100px; display:flex; flex-direction:column; justify-content:space-between; }
+  .seat.available { background: linear-gradient(180deg, rgba(8,90,70,0.06), rgba(8,90,70,0.03)); }
+  .seat.reserved { background: linear-gradient(180deg, rgba(120,20,20,0.2), rgba(120,20,20,0.14)); }
+  .seat .title { font-weight:700; font-size:16px; }
+  .seat .by { font-size:13px; color:#c7d6ea; }
+  .seat .controls { margin-top:8px; }
+  .btn-ghost { background:transparent; border:1px solid rgba(255,255,255,0.04); color:#bcd3ff; padding:8px 10px; border-radius:8px; }
+  .btn-disabled { opacity:0.45; pointer-events:none; }
+  .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+  .select { background:#071722; color:#dbe7ff; padding:8px 10px; border-radius:8px; border:1px solid rgba(255,255,255,0.03); }
+  .statusline { font-size:13px; color:#9fb0d6; }
+  .notice { background:rgba(255,255,255,0.02); padding:8px 10px; border-radius:8px; color:#cfe0ff; font-size:14px; display:inline-block; }
+  .leader-dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:6px; }
+  .leader-dot.true { background:#38d39f; }   /* green = leader/UP */
+  .leader-dot.false { background:#ff7a6a; }  /* red = not-leader/DOWN */
+  .topbar { display:flex; gap:10px; align-items:center; }
+  .token-pill { background:rgba(255,255,255,0.03); padding:6px 10px; border-radius:999px; font-size:13px;}
+  .muted-small { font-size:12px; color:#8da8d9; }
+  .error-red { color:#ffb3b3; }
+
+  /* Ask AI styles (small) */
+  .ask-ai-card { margin-top: 18px; padding: 14px; background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005)); border-radius:12px; }
+  .ask-ai-card textarea { width:100%; border-radius:8px; padding:10px; background: rgba(255,255,255,0.02); color:inherit; border:1px solid rgba(255,255,255,0.03); resize:vertical; }
+  .ask-controls { display:flex; gap:8px; margin-top:8px; }
+  .ai-response { margin-top:12px; padding:10px; border-radius:8px; background: rgba(0,0,0,0.18); min-height:44px; color: #cfe0ff; white-space:pre-wrap; }
+  .ai-response.error { color:#fda; background: rgba(255,0,0,0.04); }
+</style>
+</head>
+<body>
+<div style="max-width:1200px;margin:0 auto;">
+  <div class="header">
+    <div>
+      <h1 class="app-title">Book My Show At BITS Pilani</h1>
+      <div class="muted">Distributed ticket booking — demo</div>
+    </div>
+    <div class="topbar">
+      <label class="statusline">Connect to node:</label>
+      <select id="nodeSelect" class="select"></select>
+      <div id="leaderBadge" class="notice" style="display:none"></div>
+      <div id="tokenPill" class="token-pill muted-small">Not logged in</div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="left">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div class="small">Account</div>
+            <div style="font-weight:700;font-size:18px" id="accountName">guest</div>
+          </div>
+          <div>
+            <!-- Dashboard login button: hidden when a token exists -->
+            <button id="loginBtn" class="btn" style="display:inline-block">Login</button>
+          </div>
+        </div>
+
+        <hr style="margin:12px 0;border:0;border-top:1px solid rgba(255,255,255,0.03)">
+
+        <div class="small">Cluster Status</div>
+        <div id="peers" class="cluster-list" style="margin-top:12px"></div>
+
+        <div style="margin-top:12px" class="muted small">Tip: select a node to connect. If it's not leader, reserve/cancel will be disabled.</div>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:8px">About</div>
+        <div class="muted-small">This demo shows a Raft-like replicated ticket booking system. Use the node selector to pick which server you connect to. If you pick a follower, modifying actions are disabled purposely (Option C).</div>
+      </div>
+    </div>
+
+    <div class="seats">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div style="font-weight:700">Seats</div>
+          <div>
+            <button id="refreshBtn" class="btn-ghost">Refresh Seats</button>
+          </div>
+        </div>
+
+        <div id="screen" style="background:#0b2435;padding:8px;border-radius:8px;text-align:center;color:#bcd3ff;margin-bottom:12px">SCREEN</div>
+
+        <div id="grid" class="grid"></div>
+      </div>
+
+      <!-- Ask AI card (placed under seats panel) -->
+      <section id="ask-ai-card" class="card ask-ai-card" style="margin-top:18px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:700">Ask AI</div>
+            <div class="muted-small">Ask about seats (e.g. "is S3 available?")</div>
+          </div>
+        </div>
+        <div style="margin-top:10px">
+          <textarea id="ai-query" placeholder="Type your question (e.g. 'Is S1 available?')" rows="2"></textarea>
+          <div class="ask-controls">
+            <button id="ask-btn" class="btn">Ask AI</button>
+            <button id="ask-clear" class="btn btn-ghost">Clear</button>
+          </div>
+          <div id="ai-response" class="ai-response" aria-live="polite"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- lightweight modal for login -->
+<div id="loginModal" style="display:none;position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,0.6);align-items:center;justify-content:center;">
+  <div style="background:#071722;padding:18px;border-radius:12px;min-width:320px;">
+    <div style="font-weight:700;margin-bottom:10px">Login</div>
+    <div style="margin-bottom:8px"><input id="loginUser" placeholder="username" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03)"></div>
+    <div style="margin-bottom:12px"><input id="loginPass" type="password" placeholder="password" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03)"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button id="loginCancel" class="btn-ghost">Cancel</button>
+      <button id="loginSubmit" class="btn">Login</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/*
+ Frontend UI script
+ - node selector, cluster probe, seats rendering
+ - login modal + session
+ - Ask AI calling frontend /ask endpoint (which proxies to your llm_server)
+ - Conservative behavior: if cached leader goes down, force re-login
+*/
+
+// runtime state
+let peersInfo = {};    // addr -> { alive, is_leader, last_response, last_seen }
+let nodes = [];
+let selectedNode = null;
+let token = localStorage.getItem('demo_token') || "";
+let username = localStorage.getItem('demo_user') || "guest";
+
+// DOM elements
+const nodeSelect = document.getElementById('nodeSelect');
+const peersDiv = document.getElementById('peers');
+const leaderBadge = document.getElementById('leaderBadge');
+const tokenPill = document.getElementById('tokenPill');
+const accountName = document.getElementById('accountName');
+const loginBtn = document.getElementById('loginBtn');
+const loginModal = document.getElementById('loginModal');
+const loginUser = document.getElementById('loginUser');
+const loginPass = document.getElementById('loginPass');
+const loginSubmit = document.getElementById('loginSubmit');
+const loginCancel = document.getElementById('loginCancel');
+const refreshBtn = document.getElementById('refreshBtn');
+const grid = document.getElementById('grid');
+
+const askBtn = document.getElementById('ask-btn');
+const askClear = document.getElementById('ask-clear');
+const queryBox = document.getElementById('ai-query');
+const respDiv = document.getElementById('ai-response');
+
+// initialize UI texts from stored token
+function setTokenUI() {
+  if (token) {
+    tokenPill.textContent = `Logged as ${username}`;
+    loginBtn.style.display = 'none';
+    accountName.textContent = username;
+  } else {
+    tokenPill.textContent = 'Not logged in';
+    loginBtn.style.display = 'inline-block';
+    accountName.textContent = 'guest';
+  }
+}
+setTokenUI();
+
+// fetch /connected to populate nodes & peers list
+async function fetchConnected() {
+  try {
+    const r = await fetch('/connected');
+    if (!r.ok) return;
+    const j = await r.json();
+    peersInfo = j.peers || {};
+    nodes = Object.keys(peersInfo).sort();
+    // apply node dropdown state
+    updateNodeDropdown(nodes);
+    // update peers list UI and leader badge
+    updatePeersList(j.cached_leader);
+    updateSelectedNodeState(j.cached_leader);
+    // if cached leader is down and user was logged in, force logout to re-login to new leader
+    const cachedLeader = j.cached_leader || null;
+    const leaderAlive = cachedLeader && peersInfo[cachedLeader] && peersInfo[cachedLeader].alive;
+    if (token && cachedLeader && !leaderAlive) {
+      // force logout and prompt re-login (safer than stale session)
+      token = "";
+      username = "guest";
+      localStorage.removeItem('demo_token');
+      localStorage.removeItem('demo_user');
+      setTokenUI();
+      console.warn("Leader down: forced logout so user can re-login to new leader.");
+    }
+  } catch (e) {
+    console.warn("fetchConnected failed", e);
+  }
+}
+
+function updateNodeDropdown(nodesList) {
+  const prev = nodeSelect.value;
+  nodeSelect.innerHTML = "";
+  nodesList.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a; opt.textContent = a;
+    nodeSelect.appendChild(opt);
+  });
+  if (prev && nodesList.includes(prev)) {
+    nodeSelect.value = prev;
+    selectedNode = prev;
+  } else if (nodesList.length) {
+    nodeSelect.value = nodesList[0];
+    selectedNode = nodesList[0];
+  } else {
+    selectedNode = null;
+  }
+}
+
+function updatePeersList(cachedLeader) {
+  peersDiv.innerHTML = "";
+  for (const [addr, info] of Object.entries(peersInfo)) {
+    const isLeader = (addr === cachedLeader);
+    const row = document.createElement('div');
+    row.className = 'peer-row';
+    row.innerHTML = `
+      <div class="peer-left">
+        <span class="leader-dot ${info.alive && isLeader ? 'true' : 'false'}"></span>
+        <div>
+          <div style="font-weight:700">${addr}</div>
+          <div class="muted-small">${info.last_response || ''}</div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        ${info.alive ? '<div class="muted-small">Up</div>' : '<div class="muted-small">Down</div>'}
+        ${isLeader ? '<div class="badge">LEADER</div>' : ''}
+      </div>
+    `;
+    peersDiv.appendChild(row);
+  }
+}
+
+function updateSelectedNodeState(cachedLeader) {
+  const badge = leaderBadge;
+  if (!selectedNode || !peersInfo[selectedNode]) {
+    badge.style.display = "none";
+    disableMutation(true, "No node selected");
+    return;
+  }
+  const info = peersInfo[selectedNode];
+  badge.style.display = "inline-block";
+  let txt = "";
+  if (selectedNode === cachedLeader && info.alive) {
+    txt = "Leader: " + selectedNode;
+    badge.style.background = "#05231a";
+    disableMutation(false);
+  } else if (info.alive) {
+    txt = "This node is a follower";
+    badge.style.background = "#241213";
+    disableMutation(true, "Selected node is follower");
+  } else {
+    txt = "Leader unknown / node down";
+    badge.style.background = "#1a2430";
+    disableMutation(true, "Selected node is down");
+  }
+  badge.textContent = txt;
+}
+
+function disableMutation(dis, reason) {
+  window.mutationDisabled = !!dis;
+  window.mutationDisabledReason = reason || "";
+  document.querySelectorAll(".action-reserve, .action-cancel").forEach(btn => {
+    if (dis) btn.classList.add("btn-disabled");
+    else btn.classList.remove("btn-disabled");
+  });
+  if (dis) {
+    tokenPill.textContent = token ? `Connected (readonly): ${selectedNode || '—'}` : `Not logged in — readonly view`;
+  } else {
+    tokenPill.textContent = token ? `${username} | ${token}` : `Connected (leader): ${selectedNode || '—'} (login to operate)`;
+  }
+}
+
+// seats fetch
+async function refreshSeats() {
+  const g = document.getElementById('grid');
+  if (!selectedNode) {
+    g.innerHTML = `<div class="error-red">No node selected</div>`;
+    return;
+  }
+  try {
+    const body = { token: token, node: selectedNode };
+    const r = await fetch('/get', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    const j = await r.json();
+    if (j.error) {
+      g.innerHTML = `<div style="grid-column:1/-1;color:#f88">Error: ${j.error}</div>`;
+      return;
+    }
+    const seats = j.seats || [];
+    renderSeats(seats);
+  } catch (e) {
+    g.innerHTML = `<div style="grid-column:1/-1;color:#f88">Network error fetching seats</div>`;
+  }
+}
+
+function renderSeats(seats) {
+  const g = document.getElementById('grid');
+  g.innerHTML = "";
+  const map = {};
+  seats.forEach(s => map[s.seat_id] = s);
+  for (let i=1;i<=10;i++) {
+    const id = "S" + i;
+    const s = map[id] || { seat_id:id, reserved:false, reserved_by:"" };
+    const div = document.createElement('div');
+    div.className = 'seat ' + (s.reserved ? 'reserved' : 'available');
+    div.innerHTML = `
+      <div>
+        <div class="small">Seat</div>
+        <div class="title">${id}</div>
+        <div class="by">${s.reserved ? ('Reserved by: ' + s.reserved_by) : 'Available'}</div>
+      </div>
+      <div class="controls"></div>
+    `;
+    const controls = div.querySelector('.controls');
+    const btn = document.createElement('button');
+    if (s.reserved) {
+      btn.textContent = 'Cancel';
+      btn.className = 'btn action-cancel';
+      btn.onclick = () => handleCancel(id);
+      if (!token || s.reserved_by !== username) btn.classList.add('btn-disabled');
+    } else {
+      btn.textContent = 'Reserve';
+      btn.className = 'btn action-reserve';
+      btn.onclick = () => handleReserve(id);
+      if (!token) btn.classList.add('btn-disabled');
+    }
+    controls.appendChild(btn);
+    g.appendChild(div);
+  }
+  disableMutation(window.mutationDisabled || false, window.mutationDisabledReason);
+}
+
+// actions
+async function handleReserve(seat_id) {
+  if (window.mutationDisabled) {
+    alert("Action disabled: " + (window.mutationDisabledReason || "selected node not leader"));
+    return;
+  }
+  try {
+    const r = await fetch('/reserve', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: token, seat_id: seat_id, client_id: username, node: selectedNode })});
+    const j = await r.json();
+    if (j.code === 0) {
+      await refreshAll();
+    } else {
+      alert("Reserve failed: " + (j.msg || j.error || JSON.stringify(j)));
+      await refreshAll();
+    }
+  } catch (e) {
+    alert("Reserve error: " + e);
+  }
+}
+
+async function handleCancel(seat_id) {
+  if (window.mutationDisabled) {
+    alert("Action disabled: " + (window.mutationDisabledReason || "selected node not leader"));
+    return;
+  }
+  try {
+    const r = await fetch('/cancel', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: token, seat_id: seat_id, node: selectedNode })});
+    const j = await r.json();
+    if (j.code === 0) {
+      await refreshAll();
+    } else {
+      alert("Cancel failed: " + (j.msg || j.error || JSON.stringify(j)));
+      await refreshAll();
+    }
+  } catch (e) {
+    alert("Cancel error: " + e);
+  }
+}
+
+// UI wiring
+nodeSelect.onchange = (e) => {
+  selectedNode = e.target.value;
+  updateSelectedNodeState();
+  refreshSeats();
+};
+refreshBtn.onclick = () => refreshSeats();
+
+loginBtn.onclick = () => {
+  loginModal.style.display = 'flex';
+  loginUser.value = username === 'guest' ? '' : username;
+  loginPass.value = '';
+};
+loginCancel.onclick = () => loginModal.style.display = 'none';
+
+loginSubmit.onclick = async () => {
+  const u = loginUser.value.trim();
+  const p = loginPass.value;
+  if (!u || !p) { alert("enter username and password"); return; }
+  try {
+    const r = await fetch('/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ username: u, password: p })});
+    const j = await r.json();
+    if (r.ok && j.status === 0 && j.token) {
+      token = j.token;
+      username = u;
+      localStorage.setItem('demo_token', token);
+      localStorage.setItem('demo_user', username);
+      accountName.textContent = username;
+      tokenPill.textContent = `${username} | ${token}`;
+      loginModal.style.display = 'none';
+      loginBtn.style.display = 'none';
+      await refreshAll();
+    } else {
+      alert("Login failed: " + (j.error || 'invalid credentials'));
+    }
+  } catch (e) {
+    alert("Login error: " + e);
+  }
+};
+
+// Ask AI wiring - calls frontend /ask which proxies to your llm_server
+askBtn.onclick = async () => {
+  const q = (queryBox.value || '').trim();
+  if (!q) return;
+  askBtn.disabled = true; askBtn.textContent = 'Thinking…';
+  respDiv.textContent = ''; respDiv.classList.remove('error');
+  try {
+    const r = await fetch('/ask', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ q })});
+    const j = await r.json();
+    if (r.ok && j.answer) {
+      respDiv.textContent = j.answer;
+    } else {
+      respDiv.textContent = j.error || JSON.stringify(j);
+      respDiv.classList.add('error');
+    }
+  } catch (e) {
+    respDiv.textContent = 'Network error: ' + e.message;
+    respDiv.classList.add('error');
+  } finally {
+    askBtn.disabled = false; askBtn.textContent = 'Ask AI';
+  }
+};
+askClear.onclick = () => { queryBox.value = ''; respDiv.textContent = ''; respDiv.classList.remove('error'); };
+
+// combined refresh
+async function refreshAll() {
+  await fetchConnected();
+  await refreshSeats();
+}
+
+// initial poll
+fetchConnected().then(refreshSeats);
+setInterval(fetchConnected, 3000);
+setInterval(refreshSeats, 5000);
+</script>
+</body>
+</html>

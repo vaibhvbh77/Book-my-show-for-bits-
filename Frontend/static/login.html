@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Login — Book For My BITS</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(180deg, #071029, #052231);
+      color: #e6eef8;
+      font-family: Inter, system-ui;
+    }
+    .card {
+      background: rgba(255,255,255,0.03);
+      padding: 28px;
+      border-radius: 12px;
+      width: 320px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    input {
+      width: 100%;
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.05);
+      background: transparent;
+      color: inherit;
+    }
+    button {
+      margin-top: 14px;
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      background: linear-gradient(90deg, #ff3b3f, #ff8c42);
+      color: white;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .muted { color: #94a3b8; font-size: 13px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Book For My BITS</h2>
+    <p class="muted">Login to continue</p>
+
+    <input id="username" placeholder="Username" value="vaibhav">
+    <input id="password" type="password" placeholder="Password" value="mysecret">
+    <button id="btnLogin">Login</button>
+
+    <p class="muted" id="msg"></p>
+  </div>
+
+  <script>
+    async function api(path, data){
+      try {
+        const r = await fetch(path, {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify(data)});
+        return await r.json();
+      } catch(e) {
+        return { error: String(e) };
+      }
+    }
+
+    document.getElementById('btnLogin').onclick = async () => {
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      if(!username){ document.getElementById('msg').innerText = "Enter username"; return; }
+
+      const resp = await api('/login', {username, password});
+      if(resp && resp.token){
+        localStorage.setItem('bfmb_token', resp.token);
+        localStorage.setItem('bfmb_user', username);
+        window.location.href = '/index.html';
+      } else {
+        document.getElementById('msg').innerText = 'Login failed';
+        console.log('login resp', resp);
+      }
+    };
+  </script>
+</body>
+</html>
